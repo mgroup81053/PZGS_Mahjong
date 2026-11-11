@@ -1,0 +1,142 @@
+[
+  {
+    "file": "mahjong_v1_full.stl",
+    "closed_mesh": true,
+    "triangles": 1628,
+    "bounds_mm": [
+      [
+        -65.0,
+        65.0
+      ],
+      [
+        -65.0,
+        65.0
+      ],
+      [
+        0.0,
+        8.0
+      ]
+    ],
+    "solid_volume_mm3": 72391.602
+  },
+  {
+    "file": "reference_color_parts/01_yellow_body.stl",
+    "closed_mesh": true,
+    "triangles": 1932,
+    "bounds_mm": [
+      [
+        -65.0,
+        65.0
+      ],
+      [
+        -65.0,
+        65.0
+      ],
+      [
+        0.0,
+        8.0
+      ]
+    ],
+    "solid_volume_mm3": 65647.164
+  },
+  {
+    "file": "reference_color_parts/02_green_tray.stl",
+    "closed_mesh": true,
+    "triangles": 268,
+    "bounds_mm": [
+      [
+        -48.0,
+        48.0
+      ],
+      [
+        -48.0,
+        48.0
+      ],
+      [
+        1.7999999523162842,
+        2.4000000953674316
+      ]
+    ],
+    "solid_volume_mm3": 5477.794
+  },
+  {
+    "file": "reference_color_parts/03_red_east_background.stl",
+    "closed_mesh": true,
+    "triangles": 332,
+    "bounds_mm": [
+      [
+        -65.0,
+        -47.0
+      ],
+      [
+        -65.0,
+        -47.0
+      ],
+      [
+        7.0,
+        8.0
+      ]
+    ],
+    "solid_volume_mm3": 284.063
+  },
+  {
+    "file": "reference_color_parts/04_dark_gray_backgrounds.stl",
+    "closed_mesh": true,
+    "triangles": 996,
+    "bounds_mm": [
+      [
+        -65.0,
+        65.0
+      ],
+      [
+        -65.0,
+        65.0
+      ],
+      [
+        7.0,
+        8.0
+      ]
+    ],
+    "solid_volume_mm3": 854.936
+  },
+  {
+    "file": "reference_color_parts/05_black_east_letter.stl",
+    "closed_mesh": true,
+    "triangles": 204,
+    "bounds_mm": [
+      [
+        -61.0,
+        -51.0
+      ],
+      [
+        -60.963531494140625,
+        -51.036468505859375
+      ],
+      [
+        7.400000095367432,
+        8.0
+      ]
+    ],
+    "solid_volume_mm3": 32.597
+  },
+  {
+    "file": "reference_color_parts/06_light_gray_letters.stl",
+    "closed_mesh": true,
+    "triangles": 576,
+    "bounds_mm": [
+      [
+        -60.739990234375,
+        61.0
+      ],
+      [
+        -60.7747802734375,
+        61.0
+      ],
+      [
+        7.399999618530273,
+        8.0
+      ]
+    ],
+    "solid_volume_mm3": 95.046
+  }
+]
