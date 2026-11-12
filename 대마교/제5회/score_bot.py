@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, date
 from threading import Lock
 from time import monotonic
 import logging
+import math
 import sys
 from pathlib import Path
 from discord import app_commands
@@ -264,15 +265,32 @@ class RecordGameModal(discord.ui.Modal, title="점수 입력"):
             await interaction.edit_original_response(content="점수 저장 결과를 시트에서 확인해 주세요.", view=None)
             return
         self.parent.stop()
-        await interaction.edit_original_response(content=f"입력 완료\n{result}", view=None)
+        status = "입력 완료"
+        try:
+            game = self.parent.game
+            if game is None:
+                game = await asyncio.to_thread(read_game, self.game_id)
+            announcement = (
+                f"경기 기록 완료 · ID {self.game_id}\n"
+                f"{date_label(game['날짜'])} / {game['지역']} / "
+                f"{game['회차']}회차 / {game['테이블 번호']}번 테이블\n\n{result}"
+            )
+            await interaction.channel.send(
+                announcement, allowed_mentions=discord.AllowedMentions.none()
+            )
+        except Exception:
+            logging.exception("저장된 경기의 공개 알림 전송 실패")
+            status = "점수는 저장되었습니다. 채널 공개 알림 전송에 실패했습니다."
+        await interaction.edit_original_response(content=f"{status}\n{result}", view=None)
         write_local_file(f"{self.game_id}\n{' '.join(map(str, scores))}\n")
 
 
 class NumberInputView(discord.ui.View):
-    def __init__(self, game_id, players):
+    def __init__(self, game_id, players, game=None):
         super().__init__(timeout=180)
         self.game_id = game_id
         self.players = players
+        self.game = game
 
     @discord.ui.button(
         label="점수 입력",
@@ -452,7 +470,7 @@ class GameSelectView(discord.ui.View):
                 else:
                     await interaction.edit_original_response(
                         content=f"{date_label(game['날짜'])} / {game['지역']} / {game['회차']}회차 / {game['테이블 번호']}번 테이블",
-                        view=NumberInputView(game_id, players))
+                        view=NumberInputView(game_id, players, game))
                     return
         except Exception:
             logging.exception("경기 처리 실패")
@@ -476,17 +494,8 @@ async def record_game(interaction, removing=False):
 
 
 @bot.tree.command(name="remove", description="선택한 경기 점수를 초기화합니다")
-@app_commands.default_permissions()
 async def remove_game(interaction: discord.Interaction):
     await record_game(interaction, removing=True)
-
-
-@remove_game.error
-async def remove_error(interaction, error):
-    if isinstance(error, (app_commands.MissingRole, app_commands.NoPrivateMessage)):
-        await interaction.response.send_message("운영자 역할이 필요합니다.", ephemeral=True)
-        return
-    raise error
 
 
 @bot.tree.command(name="record", description="점수를 기록합니다")
@@ -497,6 +506,64 @@ async def en_record_game(interaction: discord.Interaction):
 @bot.tree.command(name="기록", description="점수를 기록합니다")
 async def ko_record_game(interaction: discord.Interaction):
     await record_game(interaction)
+
+
+def read_ranking(sheet):
+    result = get_sheets().spreadsheets().values().get(
+        spreadsheetId=SPREADSHEET_ID,
+        range=sheet_range("C3:E", sheet),
+        valueRenderOption="UNFORMATTED_VALUE"
+    ).execute()
+    players = []
+    for row in result.get("values", []):
+        if not row or not str(row[0]).strip():
+            continue
+        try:
+            points = float(row[1])
+            count = float(row[2])
+            if not math.isfinite(points) or not math.isfinite(count) or count < 0 or not count.is_integer():
+                raise ValueError
+        except (IndexError, TypeError, ValueError):
+            raise ValueError(f"{row[0]} 선수의 포인트·시합 수를 시트에서 확인해 주세요.") from None
+        players.append((str(row[0]), points, int(count)))
+    # 동점이면 시트에 나온 순서를 사용합니다.
+    return sorted(players, key=lambda player: player[1], reverse=True)[:10]
+
+
+@bot.tree.command(name="랭킹", description="포인트 상위 10명의 이름·포인트·시합 수를 확인합니다")
+@app_commands.describe(구분="조회할 순위표 (기본값: 예선)")
+@app_commands.choices(구분=[
+    app_commands.Choice(name="예선", value="예선"),
+    app_commands.Choice(name="결승", value="결승"),
+])
+async def ranking(interaction: discord.Interaction, 구분: str = "예선"):
+    await interaction.response.defer(ephemeral=True, thinking=True)
+    sheet = RANK1_SHEET_NAME if 구분 == "예선" else RANK2_SHEET_NAME
+    try:
+        players = await asyncio.to_thread(read_ranking, sheet)
+    except ValueError as error:
+        await interaction.edit_original_response(content=str(error))
+        return
+    except Exception:
+        logging.exception("랭킹 조회 실패")
+        await interaction.edit_original_response(content="순위표를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.")
+        return
+    if not players:
+        await interaction.edit_original_response(content=f"{구분} 순위표에 등록된 선수가 없습니다.")
+        return
+    embed = discord.Embed(title=f"{구분} 랭킹 · 상위 {len(players)}명")
+    previous_points = None
+    place = 0
+    for index, (name, points, count) in enumerate(players, 1):
+        if points != previous_points:
+            place = index
+        embed.add_field(
+            name=f"{place}위 · {name}"[:256],
+            value=f"{points:,.1f} P · {count}시합",
+            inline=False
+        )
+        previous_points = points
+    await interaction.edit_original_response(embed=embed)
 
 
 def install_standings():
