@@ -131,14 +131,17 @@ def render(config, output='mahjong_example.png', font_path=None):
     font_path = find_font(font_path)
     # 설계도: 요일별 2×2 팀 카드 + 하단 랜덤 참가 현황.
     show_members = config.get('팀원표시', False)
-    card_height = 390 if show_members else 270
-    extra = 2 * (card_height - 270)
     half = config.get('출력모드', '전체') == '절반'
     days = (config.get('출력요일', '토요일'),) if half else ('토요일', '일요일')
+    visible_teams = [t for t in config['팀'] if t['요일'] in days]
+    has_vacancy = any(vacancy_count(t) for t in visible_teams)
+    card_height = (390 if has_vacancy else 348) if show_members else (270 if has_vacancy else 170)
+    header_shrink = 0 if has_vacancy else 44
+    extra = 2 * (card_height - 270) - header_shrink
     width = 964 if half else 1800
     right = width - 64
     show_random = config.get('랜덤참가표시', not half)
-    footnote = config.get('각주', '팀당 정원 4명 · 주황색은 공석' if show_members else '팀당 정원 4명 · 주황색은 공석이 있는 팀')
+    footnote = config.get('각주', ('팀당 정원 4명 · 주황색은 공석' if show_members else '팀당 정원 4명 · 주황색은 공석이 있는 팀') if has_vacancy else '팀당 정원 4명')
     # 긴 각주는 글자 단위로 자동 줄바꿈합니다.
     measure = ImageDraw.Draw(Image.new('RGB', (1, 1)))
     footfont = ImageFont.truetype(font_path, 19)
@@ -176,25 +179,29 @@ def render(config, output='mahjong_example.png', font_path=None):
     d.rounded_rectangle((64, 224, right, 1020+extra), radius=24, fill='#FFFFFF', outline='#CED8CE', width=2)
     if not half:
         d.line((900, 244, 900, 999+extra), fill='#CED8CE', width=2)
-    d.line((88, 355, width-88, 355), fill='#CED8CE', width=2)
+    d.line((88, 355-header_shrink, width-88, 355-header_shrink), fill='#CED8CE', width=2)
 
     for col, day in enumerate(days):
         left = 64 + col * 836
         accent = '#246A56' if col == 0 else '#3D647E'
         teams = [t for t in config['팀'] if t['요일'] == day]
         vacant = sum(vacancy_count(t) for t in teams)
-        text(config.get('구역제목', day) if half else day, left+418, 250, 42, accent, 760, center=True)
-        text(f'4팀 · 공석 {vacant}자리' if vacant else '4팀', left+418, 311, 21, muted, center=True)
+        heading_y = 250 if vacant or not has_vacancy else 270
+        text(config.get('구역제목', day) if half else day, left+418, heading_y, 42, accent, 760, center=True)
+        if vacant:
+            text(f'4팀 · 공석 {vacant}자리', left+418, 311, 21, muted, center=True)
         for i, team in enumerate(teams):
-            x, y = left+38+(i%2)*400, 388+(i//2)*(card_height+34)
+            x, y = left+38+(i%2)*400, 388-header_shrink+(i//2)*(card_height+34)
             count = vacancy_count(team)
             d.rounded_rectangle((x, y, x+360, y+card_height), radius=18, fill='#FAFBF8', outline='#DFE5DB', width=2)
             d.rounded_rectangle((x+20, y+20, x+71, y+58), radius=8, fill=accent)
             text(f'{i+1:02}', x+45, y+28, 21, '#FFFFFF', center=True)
-            text(team['팀명'], x+180, y+87, 34, ink, 312, center=True)
+            text(team['팀명'], x+180, y+(87 if show_members or count else (card_height+58)//2-17), 34, ink, 312, center=True)
             if show_members:
                 for slot, name in enumerate(member_slots(team)):
-                    sy = y + 140 + slot * 47
+                    # 공석 요약이 없는 카드는 명단 간격을 늘려 남는 공간을 채웁니다.
+                    row_step = 47 if count else (card_height - 168 - 39) / 3
+                    sy = y + 140 + slot * row_step
                     bg, fg = ('#FFF0DF', '#AA5929') if name is None else ('#E8EFE7', ink)
                     d.rounded_rectangle((x+22, sy, x+338, sy+39), radius=8, fill=bg)
                     text(str(slot+1), x+35, sy+10, 17, muted)
